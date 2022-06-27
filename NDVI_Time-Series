@@ -88,8 +88,16 @@ var with_ndvi_ndmi = with_ndvi.map(addNDMI);
 
 
 
-ee.sample();
-image.sampleRegion
+// iterate over all images in the image collection and
+// extract the values
+var sampledPoints = with_ndvi_ndmi.map(function (image) {
+  return image.sampleRegions({
+  collection: AV,
+  scale: 30});
+}).flatten();
+
+
+Export.table.toDrive(sampledPoints);
 
 
 
