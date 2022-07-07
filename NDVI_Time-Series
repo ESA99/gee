@@ -76,24 +76,66 @@ var addNDVI = function(img) {
 var with_ndvi = LS.map(addNDVI);
 var greenest = with_ndvi.qualityMosaic('ndvi');
 
-// Add moisture index
+
+// Add moisture indices
+
 var addNDMI = function(img){
   var ndmi = img.normalizedDifference(['NIR','SWIR1']).rename('ndmi');
   return img.addBands(ndmi);
 };
 
-var with_ndmi = LS.map(addNDMI);
-var with_ndvi_ndmi = with_ndvi.map(addNDMI);
+
+var addMSI = function(img){
+  var msi = img.expression(
+    'SWIR1 / NIR',  {
+      'NIR': img.select('NIR'), 
+      'SWIR1': img.select('SWIR1')
+}).rename('msi');
+  return img.addBands(msi);
+};
+
+
+var addGVMI = function(img){
+  var gvmi = img.expression(
+    '((NIR + 0.1) - (SWIR2 + 0.02))/((NIR + 0.1) + (SWIR2 + 0.02))',  {
+      'NIR': img.select('NIR'), 
+      'SWIR2': img.select('SWIR2')
+}).rename('gvmi');
+  return img.addBands(gvmi);
+};
+
+
+var addEVI = function(img){
+  var evi = img.expression(
+    '2.5 * ((NIR - RED) / (NIR + 6 * RED - 7.5 * BLUE + 1))', {
+      'NIR': img.select('NIR'),
+      'RED': img.select('R'),
+      'BLUE': img.select('B')
+}).rename('evi');
+  return img.addBands(evi);
+};
+
+
+
+
+var LS_indices = LS.map(addNDVI)
+                   .map(addNDMI)
+                   .map(addMSI)
+                   .map(addGVMI)
+                   .map(addEVI);
 
 
 
 
 // iterate over all images in the image collection and
 // extract the values
-var sampledPoints = with_ndvi_ndmi.map(function (image) {
+var sampledPoints = LS_indices.map(function (image) {
   return image.sampleRegions({
   collection: AV,
-  scale: 30});
+  scale: 30,
+  projection: "EPSG:4326",
+  geometries: true
+  });
 }).flatten();
 
 
@@ -102,10 +144,10 @@ Export.table.toDrive(sampledPoints);
 
 
 
-print(ui.Chart.image.series(with_ndvi.select('ndvi'), AV));
-print(ui.Chart.image.series(with_ndmi.select('ndmi'), AV));
 
+print(ui.Chart.image.series(LS_indices.select('ndvi'), AV));
+print(ui.Chart.image.series(LS_indices.select('ndmi'), AV));
+print(ui.Chart.image.series(LS_indices.select('msi'), AV));
+print(ui.Chart.image.series(LS_indices.select('gvmi'), AV));
+print(ui.Chart.image.series(LS_indices.select('evi'), AV));
 
-// Visualisaion
-var CIR = {min:0, max:0.3, bands:['NIR','R','G']};
-var RGB = {min:0, max:0.4, bands:['R','G','B']};
